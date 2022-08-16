@@ -28,6 +28,3 @@
 **/compiler*
 **/out.*
 **/.state
-Nek5000/3rd_party/gslib/*
-Nek5000/3rd_party/include/*
-Nek5000/3rd_party/lib/*
