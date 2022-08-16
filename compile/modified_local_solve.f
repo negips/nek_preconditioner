@@ -427,7 +427,6 @@ c
 
 !     prabal
       call transpose(dgllt,np,dgll,np)
-
 c
       call rzero(a,np*np)
       do j=0,n
@@ -526,6 +525,7 @@ c-----------------------------------------------------------------------
 
 !     Coordinates
 !     M2 -> M1 (Interior Points just copied) 
+!     Face points from M1 mesh      
       real x21(lx1,ly1,lz1,lelt)
       real y21(lx1,ly1,lz1,lelt)
       real z21(lx1,ly1,lz1,lelt)
@@ -539,7 +539,7 @@ c-----------------------------------------------------------------------
       call rzero(z21,lx1*ly1*lz1*nelv)
       if (if3d) call fill_interior(z21,zm2)
 
-!     Copy face values      
+!     Copy all face values      
       nfaces = 2*ndim
       do e=1,nelv
       do f=1,nfaces

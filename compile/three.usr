@@ -995,14 +995,6 @@ c     Fill interiors
      $                                       drdx(1,e),bh,ly1)
         call copy(tmp5(1,1,1,e),ah,lx1*lx1)
       enddo  
-
-      call semhat(ah,bh,ch,dh,zh,dph,jph,bgl,
-     $              zglhat,dgl,jgl,nr,wh)
-      do e=1,nelv
-        call rone(drdx(1,e),lx1)
-        call build_local_1D_weak_laplacian(laplx(1,1,e),dph,
-     $                                       drdx(1,e),bh,ly1)
-      enddo  
     
       call copy(tmp1,laplx,n)
       call copy(tmp2,laply,n)
@@ -1025,56 +1017,28 @@ c     Fill interiors
       return
       end subroutine test_semhat2
 !---------------------------------------------------------------------- 
-      subroutine build_local_1D_weak_laplacian(ah,dph,drdx,bm,n1)
 
-!     This is the Laplacian Matrix in the weak form
-!     ah = DT*B*D        
+      subroutine build_local_1D_laplacian(ah,dph,drdx,bm,n)
+
+!     This is the weak Laplacian Matrix
+!     ah = DT*B*D 
 
       implicit none
 
-      integer n1        ! lx1/ly1/lz1
-      real ah(n1,n1), dph(n1,n1)
-      real drdx(n1), bm(n1)
+      integer n         ! lx1/ly1/lz1
+      real ah(n,n)      ! Laplacian
+      real dph(n,n)     ! Gradient matrix
+      real drdx(n) 
+      real bm(n)        ! Mass (unweighted)
 
       integer i,j,k
       real s
 
 
-      do i=1,n1
-      do j=1,n1
-        ah(i,j) = 0.0
-        do k=1,n1
-          ah(i,j) = ah(i,j) + 
-     $       dph(i,k)*drdx(k)*bm(k)*(1.0/drdx(k))*dph(j,k)*drdx(k)
-        enddo
-!        ah(i,j) = s
-      enddo
-      enddo 
-
-
-      return
-      end subroutine build_local_1D_weak_laplacian
-!---------------------------------------------------------------------- 
-
-      subroutine build_local_1D_laplacian(ah,dph,drdx,bm,n1)
-
-!     This is the normal Laplacian Matrix
-!     ah = D*B*D 
-
-      implicit none
-
-      integer n1        ! lx1/ly1/lz1
-      real ah(n1,n1), dph(n1,n1)
-      real drdx(n1), bm(n1)
-
-      integer i,j,k
-      real s
-
-
-      do i=1,n1
-      do j=1,n1
+      do i=1,n
+      do j=1,n
         s = 0.0
-        do k=1,n1
+        do k=1,n
           s = s + dph(k,i)*drdx(k)*bm(k)*(1.0/drdx(k))*dph(k,j)*drdx(k)
         enddo
         ah(i,j) = s
