@@ -817,6 +817,8 @@ c     Fill interiors
 !     Derivative mapping
       real drdx(lx1,lelt),dsdy(ly1,lelt),dtdz(lz1,lelt)
       real derivx(lx1,ly1,lelv),derivy(lx1,ly1,lelv)
+!     Laplacians      
+      real laplx(lx1,lx1,lelv),laply(ly1,ly1,lelv),laplz(lz1,lz1,lelv)
       
       real sc           ! scale
       real dd           ! delta for the end points
@@ -989,12 +991,47 @@ c     Fill interiors
       call outpost(tmp3,tmp5,tmp6,tmp4,tmp5,'tmp') ! actual derivative
 
 !     Seems to work so far
+      do e=1,nelv
+        call invers2(tmpx,drdx(1,e),lx1)
+        call build_local_1D_laplacian(laplx(1,1,e),dph,drdx(1,e),bh,lx1)
+        call invers2(tmpx,dsdy(1,e),lx1)
+        call build_local_1D_laplacian(laply(1,1,e),dph,dsdy(1,e),bh,ly1)
+      enddo  
 
+      call copy(tmp1,laplx,n)
+      call copy(tmp2,laply,n)
+      call outpost(tmp1,tmp2,tmp3,tmp4,tmp5)
 
       return
       end subroutine test_semhat2
 !---------------------------------------------------------------------- 
 
+      subroutine build_local_1D_laplacian(ah,dph,drdx,bm,n1)
+
+      implicit none
+
+      integer n1        ! lx1/ly1/lz1
+      real ah(n1,n1), dph(n1,n1)
+      real drdx(n1), bm(n1)
+
+      integer i,j,k
+      real s
+
+
+      do i=1,n1
+      do k=1,n1
+        s = 0.0
+        do j=1,n1
+          s = s + dph(i,j)*drdx(j)*bm(j)*(1.0/drdx(j))*dph(k,j)*drdx(j)
+        enddo
+        ah(k,i) = s
+      enddo
+      enddo 
+
+
+      return
+      end subroutine build_local_1D_laplacian
+!---------------------------------------------------------------------- 
 
 
 
