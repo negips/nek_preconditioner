@@ -5,5 +5,5 @@ Box 1			 Section of Annulus
 -3 -3 			 Nelx Nely Nelz
 1. 4. 1.0       (xi \Axial Direction)
 1. 4. 1.0       (yi \Radial Direction)
-W  ,W  ,P  ,P  ,   ,   ,	BC's: (x,y,z)
+P  ,P  ,P  ,P  ,   ,   ,	BC's: (x,y,z)
 O  ,O  ,O  ,O  ,   ,   ,	Temp BC's: (x,y,z)

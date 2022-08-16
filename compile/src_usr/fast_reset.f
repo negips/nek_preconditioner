@@ -313,10 +313,10 @@ c     calculate E tilde operator
 
 c     call outmat(s,n+1,n+1,'  Et  ',ie)
 c     calculate B tilde operator
-!      call rone(dummy,lx1)
-!      call set_up_fast_1D_sem_op_again(g,bb0,bb1,l,r,ll,lm,lr,bh,jgl,
-!     $                                 dummy,1)
-      call set_up_fast_1D_sem_op(g,bb0,bb1,l,r,ll,lm,lr,bh,jgl,1)
+      call rone(dummy,lx1)
+      call set_up_fast_1D_sem_op_again(g,bb0,bb1,l,r,ll,lm,lr,bh,jgl,
+     $                                 dummy,1)
+!      call set_up_fast_1D_sem_op(g,bb0,bb1,l,r,ll,lm,lr,bh,jgl,1)
 
       n=n+1
       call generalev(s,g,lam,n,w)
@@ -657,4 +657,156 @@ c   6 format(i5,2x,4i3,3x,4(1x,a3),'  get_fast_bc')
       end
 c-----------------------------------------------------------------------
 
+      subroutine set_up_fast_1D_sem_op_again2
+     $                  (g,b0,b1,l,r,ll,lm,lr,bh,jgl,rho,jscl)
+
+!     In this routine I switch the indicies of jgl when calculating the
+!     laplacian/mass matrix.
+!     I think this is the correct way to do it.        
+
+c                  -1 T
+c     G = J (rho*B)  J
+c
+c     gives the inexact restriction of this matrix to
+c     an element plus one node on either side
+c
+c     g - the output matrix
+c     b0, b1 - the range for Bhat indices for the element
+c              (enforces boundary conditions)
+c     l, r - whether there is a left or right neighbor
+c     ll,lm,lr - lengths of left, middle, and right elements
+c     bh - hat matrix for B
+c     jgl - hat matrix for J (should map vel to pressure)
+c     jscl - how J scales
+c            0: J = Jh
+c            1: J = (L/2) Jh
+c
+c     result is inexact because:
+c        neighbor's boundary condition at far end unknown
+c        length of neighbor's neighbor unknown
+c        (these contribs should be small for large N and
+c         elements of nearly equal size)
+c
+
+!     rho - density
+
+      include 'SIZE'
+      real g(0:lx1-1,0:lx1-1)
+      real bh(0:lx1-1),jgl(1:lx2,0:lx1-1)
+      real ll,lm,lr
+      integer b0,b1
+      logical l,r
+      integer jscl
+c
+      real bl(0:lx1-1),bm(0:lx1-1),br(0:lx1-1)
+      real gl,gm,gr,gll,glm,gmm,gmr,grr
+      real fac
+      integer n
+
+      real rho(0:lx1-1)       ! density
+      real rhobh(0:lx1-1)     ! density*mass
+
+      n=lx1-1
+
+      call col3(rhobh(0),bh(0),rho(0),lx1)
+
+c     compute the scale factors for J      
+      if (jscl.eq.0) then
+         gl=1.
+         gm=1.
+         gr=1.
+      elseif (jscl.eq.1) then
+         gl=0.5*ll
+         gm=0.5*lm
+         gr=0.5*lr
+      endif
+      gll = gl*gl
+      glm = gl*gm
+      gmm = gm*gm
+      gmr = gm*gr
+      grr = gr*gr
+c
+c     compute the summed inverse mass matrices for
+c     the middle, left, and right elements
+      do i=1,n-1
+         bm(i)=2. /(lm*rhobh(i))
+      enddo
+      if (b0.eq.0) then
+         bm(0)=0.5*lm*rhobh(0)
+         if(l) bm(0)=bm(0)+0.5*ll*rhobh(n)
+         bm(0)=1. /bm(0)
+      endif
+      if (b1.eq.n) then
+         bm(n)=0.5*lm*rhobh(n)
+         if(r) bm(n)=bm(n)+0.5*lr*rhobh(0)
+         bm(n)=1. /bm(n)
+      endif
+c     note that in computing bl for the left element,
+c     bl(0) is missing the contribution from its left neighbor
+      if (l) then
+         do i=0,n-1
+            bl(i)=2. /(ll*rhobh(i))
+         enddo
+         bl(n)=bm(0)
+      endif
+c     note that in computing br for the right element,
+c     br(n) is missing the contribution from its right neighbor
+      if (r) then
+         do i=1,n
+            br(i)=2. /(lr*rhobh(i))
+         enddo
+         br(0)=bm(n)
+      endif
+c      
+      call rzero(g,(n+1)*(n+1))
+      do j=1,n-1
+         do i=1,n-1
+            do k=b0,b1
+!               g(i,j) = g(i,j) + gmm*jgl(i,k)*bm(k)*jgl(j,k)
+               g(i,j) = g(i,j) + gmm*jgl(k,i)*bm(k)*jgl(k,j)
+            enddo
+         enddo
+      enddo
+c      
+      if (l) then
+         do i=1,n-1
+!            g(i,0) = glm*jgl(0,i)*bm(0)*jgl(n-1,n)
+            g(i,0) = glm*jgl(i,0)*bm(0)*jgl(n,n-1)
+            g(0,i) = g(i,0)
+         enddo
+c        the following is inexact
+c        the neighbors bc's are ignored, and the contribution
+c        from the neighbor's neighbor is left out
+c        that is, bl(0) could be off as noted above
+c        or maybe i should go from 1 to n
+         do i=0,n
+!            g(0,0) = g(0,0) + gll*jgl(n-1,i)*bl(i)*jgl(n-1,i)
+            g(0,0) = g(0,0) + gll*jgl(i,n-1)*bl(i)*jgl(i,n-1)
+         enddo
+      else
+         g(0,0)=1.
+      endif
+c      
+      if (r) then
+         do i=1,n-1
+!            g(i,n) = gmr*jgl(i,n)*bm(n)*jgl(1,0)
+            g(i,n) = gmr*jgl(n,i)*bm(n)*jgl(0,1)
+            g(n,i) = g(i,n)
+         enddo
+c        the following is inexact
+c        the neighbors bc's are ignored, and the contribution
+c        from the neighbor's neighbor is left out
+c        that is, br(n) could be off as noted above
+c        or maybe i should go from 0 to n-1
+         do i=0,n
+!            g(n,n) = g(n,n) + grr*jgl(1,i)*br(i)*jgl(1,i)
+            g(n,n) = g(n,n) + grr*jgl(i,1)*br(i)*jgl(i,1)
+         enddo
+      else
+         g(n,n)=1.
+      endif
+     
+      return
+      end
+c-----------------------------------------------------------------------
 

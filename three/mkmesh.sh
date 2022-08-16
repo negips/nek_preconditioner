@@ -6,13 +6,13 @@ EOF
 #
 reatore2 << EOF
 box
-taylor
+three
 EOF
 #
 rm -f box.rea
-rm -f taylor.rea
+rm -f three.rea
 genmap << EOF
-taylor
+three
 0.00001
 EOF
 

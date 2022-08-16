@@ -57,7 +57,10 @@
       n = lx1*ly1*lz1*nelv
 
 !     Keep original mesh location      
-      call copy3(xm0_fs,ym0_fs,zm0_fs,xm1,ym1,zm1,n)
+      call copy(xm0_fs,xm1,n)
+      call copy(ym0_fs,ym1,n)
+      if (if3d) call copy(zm0_fs,zm1,n)
+
 
 !     Create Global numbering and GS handle
 !      call fs_map()
@@ -212,9 +215,6 @@
 
       jloop = 1
       if (if3d) jloop = 2
-
-!     Keep original mesh location      
-      call copy3(xm0_fs,ym0_fs,zm0_fs,xm1,ym1,zm1,ntot1)
 
       call rzero3(ta1,ta2,ta3,ntot1)
 
@@ -885,137 +885,7 @@
       return
       end subroutine fs_map
 !---------------------------------------------------------------------- 
-!
-!      subroutine fs_map2d
-!
-!      implicit none
-!
-!      include 'SIZE'
-!      include 'INPUT'
-!      include 'GEOM'
-!      include 'SOLN'
-!      include 'MASS'          ! bm1, temporary
-!      include 'PARALLEL'
-!
-!      include 'FS_ALE'
-!
-!      real x1sort(lx1*ly1*lz1*lelv)
-!      real x2sort(lx1*ly1*lz1*lelv)
-!      real xlocal_u(lx1*lelv)
-!      integer local_num(lx1*ly1*lz1*lelv) ! local numbering
-!      integer sortind(lx1*ly1*lz1*lelv)
-!      integer i,j,k,n,n1
-!
-!      integer lelxx
-!      parameter (lelxx=500)
-!      real gxsort1(lx1*lz1*lelxx),gxsort2(lx1*lz1*lelxx)
-!      integer gind(lx1*lz1*lelxx),gind2(lx1*lz1*lelxx)
-!      integer gind3(lx1*lz1*lelxx)
-!      integer gl_num_u(lx1*lz1*lelxx)         ! unique global numbers
-!
-!      integer nunq                        ! Unique local points
-!      integer n2,n3
-!      integer glnos
-!     
-!      real xlast,tol
-!
-!      integer igl_running_sum       ! function
-!      integer iglsum
-!
-!      real xmean,ymean,vol
-!      character cb*3
-!      real temp1(lx1,ly1,lz1,lelv)
-!      integer kx1,kx2,ky1,ky2,kz1,kz2,nx,ny,nz,iface,ie,ieg
-!      integer ix,iy,iz,nfaces
-!      real vlsum
-!      integer ifield, nxyz
-!      real temp0(lx1,ly1,lz1)
-!
-!      call mntr_log(fs_id,fs_log,'Generating Global Mapping')
-!
-!      n = lx1*ly1*lz1*nelv
-!
-!!     Keep original mesh location      
-!      call copy3(xm0_fs,ym0_fs,zm0_fs,xm1,ym1,zm1,n)
-!
-!!     Local sorting
-!      if (if3d) then
-!        call copy(x1sort,xm1,n)
-!        call copy(x2sort,zm1,n)
-!      else      
-!        call copy(x1sort,ym1,n)
-!      endif  
-!
-!      
-!      call sort(x1sort,sortind,n)
-!
-!!     Local unique elements      
-!      xlast = -9999.0
-!      nunq  = 0
-!      tol   = 1.0e-12         ! This is arbitrary. 
-!                              ! Should use a better measure
-!      do i=1,n
-!        if (abs(x1sort(i)-xlast).gt.tol) then
-!          nunq = nunq+1
-!          xlocal_u(nunq) = x1sort(i)
-!          xlast = x1sort(i)
-!        endif
-!        j = sortind(i)
-!        local_num(j) = nunq
-!      enddo  
-!
-!      n2 = igl_running_sum(nunq)
-!      n3 = iglsum(nunq,1)
-!
-!!     Global sorting                                          
-!      call rzero(gxsort1,lx1*lelxx)
-!      call copy(gxsort1(n2-nunq+1),xlocal_u,nunq)
-!
-!      call gop(gxsort1,gxsort2,'+  ',n3)
-!
-!      call copy(gxsort2,gxsort1,n3)       ! in principle we shouldn't
-!                                          ! need this
-!
-!      call sort(gxsort1,gind,n3)
-!
-!      xlast = -9999.0
-!      glnos = 0
-!      do i=1,n3
-!        if (abs(gxsort1(i)-xlast).gt.tol) then
-!          glnos = glnos+1
-!          xlast = gxsort1(i)
-!        endif
-!        gind2(i) = glnos
-!      enddo  
-!
-!      call nekgsync()
-!
-!      call i8zero(fs_gl_num,lx1*lelxx)
-!      do i=1,n3
-!        j = gind(i)
-!        gind3(j) = gind2(i)
-!      enddo
-!
-!      do i=1,nunq
-!        j = n2-nunq+i
-!        gl_num_u(i) = gind3(j)
-!      enddo
-!
-!!     Set global numbering in the whole field      
-!      xlast = -9999.0
-!      n1    = 0
-!      do i=1,n
-!        j = local_num(i)
-!        fs_gl_num(i) = gl_num_u(j)
-!      enddo  
-!
-!!     Gather-Scatter Setup      
-!      call fs_setupds(fs_gs_handle,n,fs_gl_num)
-!
-!
-!      return
-!      end subroutine fS_map2d        
-!---------------------------------------------------------------------- 
+
       subroutine fs_gen_damping
 
       implicit none
