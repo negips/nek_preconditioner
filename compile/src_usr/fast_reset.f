@@ -817,8 +817,9 @@ c-----------------------------------------------------------------------
 !              T
 !     S = J B J
 !
-!             
 !     rho - density
+
+      implicit none
 
       include 'SIZE'
 
@@ -826,6 +827,7 @@ c-----------------------------------------------------------------------
       real g(lx1,lx1)
       real bh(lx1)
       real dgl(lx1,lx1)
+      real jgl(lx1,lx1)
       real drdx(lx1)
       logical l,r
 
