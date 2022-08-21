@@ -318,11 +318,31 @@ c     calculate B tilde operator
      $                                 dummy,1)
 !      call set_up_fast_1D_sem_op(g,bb0,bb1,l,r,ll,lm,lr,bh,jgl,1)
 
-      n=n+1
+      do i=1,lx2
+         write(6,12) 'jgl ', (jgl(j),j=i,lx1*lx2,lx2)
+      enddo   
+       
+
+      do i=1,lx1
+        write(6,12) 'lapN', (s(j),j=i,lx1*lx1,lx1)
+      enddo
+
+      do i=1,lx1
+        write(6,12) 'MasN', (g(j),j=i,lx1*lx1,lx1)
+      enddo
+
+
+      n=lx1
       call generalev(s,g,lam,n,w)
+
       if(.not.l) call row_zero(s,n,n,1)
       if(.not.r) call row_zero(s,n,n,n)
       call transpose(s(n*n+1),n,s,n) ! compute the transpose of s
+
+!     Debugging      
+      
+      write(6,12) 'EigN', (lam(i),i=1,lx1) 
+12    format(A4,2x,12(E12.5,2x))
 
       return
       end
@@ -496,7 +516,6 @@ c-----------------------------------------------------------------------
       ny = ly1
       nz = lz1
 
-      call dssum(fld,nx,ny,nz)
       call rzero(fldr,lx1*nelv)
       call rzero(flds,lx1*nelv)
       call rzero(fldt,lx1*nelv)
@@ -809,390 +828,7 @@ c        or maybe i should go from 0 to n-1
       return
       end
 c-----------------------------------------------------------------------
-      subroutine set_up_fast_1D_sem_op_again3(s,g,bh,dgl,drdx,jgl,rho)
 
-!                 -1  T
-!     S = D B*(rho)  D
-!
-!              T
-!     S = J B J
-!
-!     rho - density
-
-      implicit none
-
-      include 'SIZE'
-
-      real s(lx1,lx1)
-      real g(lx1,lx1)
-      real bh(lx1)
-      real dgl(lx1,lx1)
-      real jgl(lx1,lx1)
-      real drdx(lx1)
-      logical l,r
-
-      real rho(lx1)       ! density
-      real rhoi(lx1)      ! density inverse
-
-      integer n
-
-      n=lx1
-
-      call invers2(rhoi,rho,n)
-      
-      call local_1D_laplacian(s,dgl,drdx,bh,rhoi,n)
-     
-      call local_1D_mass(g,jgl,drdx,bh,n)
-
-      return
-      end
-c-----------------------------------------------------------------------
-
-      subroutine local_1D_laplacian(ah,dph,drdx,bm,mu,n)
-
-!     This is the weak Laplacian Matrix
-!     With variable diffusivity \mu        
-!     ah = D*\mu*B*DT
-
-      implicit none
-
-      integer n         ! lx1/ly1/lz1
-      real ah(n,n)      ! Laplacian
-      real dph(n,n)     ! Gradient matrix
-      real drdx(n) 
-      real bm(n)        ! Mass (unweighted)
-      real mu(n)
-
-      integer i,j,k
-      real s
-
-
-      call rzero(s,n*n)
-      do i=1,n
-      do j=1,n
-        s = 0.0
-        do k=1,n
-          s = s + dph(k,i)*drdx(k)*
-     $            mu(k)*bm(k)*(1.0/drdx(k))*
-     $            dph(k,j)*drdx(k)
-        enddo
-        ah(i,j) = s
-      enddo
-      enddo 
-
-
-      return
-      end subroutine local_1D_laplacian
-!---------------------------------------------------------------------- 
-
-      subroutine local_1D_mass(ah,jgl,drdx,bm,n)
-
-!     This is the Local 1D Mass Matrix
-!     Built along with the interpolation operator        
-!     ah = J*B*JT
-
-      implicit none
-
-      integer n         ! lx1/ly1/lz1
-      real ah(n,n)      ! Laplacian
-      real jgl(n,n)     ! Interpolation matrix
-      real drdx(n) 
-      real bm(n)        ! Mass (unweighted)
-      real mu(n)
-
-      integer i,j,k
-      real s
-
-      call rzero(ah,n*n)
-      do i=1,n
-      do j=1,n
-        do k=1,n
-          s = s + jgl(k,i)*bm(k)*(1.0/drdx(k))*jgl(k,j)
-        enddo
-        ah(i,j) = s
-      enddo
-      enddo 
-
-
-      return
-      end subroutine local_1D_mass
-!---------------------------------------------------------------------- 
-
-      subroutine local_1D_geom()
-
-      implicit none
-
-      include 'SIZE'
-      include 'WZ'
-      include 'DXYZ'
-      include 'MYSEMHAT'
-
-      integer e,nr
-      real sc,dd,l0
-
-!     These are populated by swap_Lengths_mesh2
-      real l
-      common /swaplengths/ l(lx1,ly1,lz1,lelv)
-      real lr ,ls ,lt   ! not used by swap lengths
-      real llr(lelt)    ! length of left element along "r" 
-      real lls(lelt)    ! length of left element along "s"
-      real llt(lelt)    ! length of left element along "t"
-      real lmr(lelt)    ! length of this element along "r"
-      real lms(lelt)    ! length of this element along "s"
-      real lmt(lelt)    ! length of this element along "t"
-      real lrr(lelt)    ! length of right element along "r"
-      real lrs(lelt)    ! length of right element along "s"
-      real lrt(lelt)    ! length of right element along "t"
-      common /ctmpf/  lr(2*lx1+4),ls(2*lx1+4),lt(2*lx1+4)
-     $              , llr,lls,llt
-     $              , lmr,lms,lmt
-     $              , lrr,lrs,lrt
-
-!     r,s,t coordinates of the 1D spectral elements.      
-      real lr1(lx1,lelt),ls1(ly1,lelt),lt1(lz1,lelt)
-!     Derivative mapping
-      real drdx(lx1,lelt),dsdy(ly1,lelt),dtdz(lz1,lelt)
-      common /geom1D/lr1,ls1,lt1,drdx,dsdy,dtdz
-
-!     ah          = Laplacian
-!     bh          = diagonal mass matrix
-!     ch          = convection operator b*d
-!     dh          = derivative matrix
-!     dph         = derivative matrix (Same as dh for now)
-!     jph         = interpolation matrix 
-!     z           = GLL points
-!
-!     zglhat      = GL points
-!     bgl         = diagonal mass matrix on GL
-!     dgl         = derivative matrix,    mapping from velocity nodes to pressure
-!     jgl         = interpolation matrix, mapping from velocity nodes to pressure
-!
-!     nr          = polynomial degree (velocity space)
-!     wh          = Work array
-
-      nr = lx1-1
-      call mysemhat(ah,bh,ch,dh,zh,dph,dpht,jph,bgl,
-     $              zglhat,dgl,jgl,nr,wh)
-
-!     populate llr,lmr,lmt...
-!     using Mesh2 coordinate positions      
-      call swap_lengths_mesh2
-      
-!     Build 1D x,y,z based on Mesh2
-      do e=1,nelv
-        lr1(1,e)   = zgm1(1,1)
-        lr1(lx1,e) = zgm1(lx1,1)
-        call copy(lr1(2,e),zgm2(1,1),lx2)
-        sc = lmr(e)/2.0
-        call cmult(lr1(1,e),sc,lx1)
-!       Add left extension        
-        sc = zgm2(lx2,1)-zgm1(lx1,1)
-        dd = sc*llr(e)/2.0
-        lr1(1,e) = lr1(1,e)+dd
-!       Add right extension        
-        sc = zgm2(1,1)-zgm1(1,1)
-        dd = sc*lrr(e)/2.0
-        lr1(lx1,e) = lr1(lx1,e)+dd
-
-        ls1(1,e)   = zgm1(1,2)
-        ls1(ly1,e) = zgm1(ly1,2)
-        call copy(ls1(2,e),zgm2(1,2),ly2)
-        sc = lms(e)/2.0
-        call cmult(ls1(1,e),sc,ly1)
-!       Add left extension        
-        sc = zgm2(ly2,2)-zgm1(ly1,2)
-        dd = sc*lls(e)/2.0
-        ls1(1,e) = ls1(1,e)+dd
-!       Add right extension        
-        sc = zgm2(1,2)-zgm1(1,2)
-        dd = sc*lrs(e)/2.0
-        ls1(ly1,e) = ls1(ly1,e)+dd
-
-        if (ndim.eq.3) then
-          lt1(1,e)   = zgm1(1,3)
-          lt1(lz1,e) = zgm1(lz1,3)
-          call copy(lt1(2,e),zgm2(1,3),lz2)
-          sc = lmt(e)/2.0
-          call cmult(lt1(1,e),sc,lz1)
-!         Add left extension        
-          sc = zgm2(lz2,3)-zgm1(lz1,3)
-          dd = sc*llt(e)/2.0
-          lt1(1,e) = lt1(1,e)+dd
-!         Add right extension        
-          sc = zgm2(1,3)-zgm1(1,3)
-          dd = sc*lrt(e)/2.0
-          lt1(lz1,e) = lt1(lz1,e)+dd
-        endif
-      enddo 
-
-!     Geometric factors/Jacobians      
-      do e=1,nelv
-        call mxm(dph,lx1,lr1(1,e),lx1,drdx(1,e),1)                ! dx/dr
-        call mxm(dph,ly1,ls1(1,e),ly1,dsdy(1,e),1)                ! dy/ds
-        if (ndim.eq.3) call mxm(dph,lz1,lt1(1,e),lz1,dtdz(1,e),1) ! dz/dt
-      enddo
-      call invcol1(drdx,lx1*nelv)                     ! dr/dx
-      call invcol1(dsdy,ly1*nelv)                     ! ds/dy
-      if (ndim.eq.3) call invcol1(dtdz,lz1*nelv)      ! dt/dz
-
-      return
-      end subroutine 
-!---------------------------------------------------------------------- 
-
-      subroutine gen_fast_again2(df,sr,ss,st,x,y,z)
-c
-c     Generate fast diagonalization matrices for each element
-c
-      include 'SIZE'
-      include 'INPUT'
-      include 'PARALLEL'
-      include 'SOLN'
-      include 'WZ'
-c
-      parameter(lxx=lx1*lx1)
-      real df(lx1*ly1*lz1,1),sr(lxx*2,1),ss(lxx*2,1),st(lxx*2,1)
-c
-      common /ctmpf/  lr(2*lx1+4),ls(2*lx1+4),lt(2*lx1+4)
-     $              , llr(lelt),lls(lelt),llt(lelt)
-     $              , lmr(lelt),lms(lelt),lmt(lelt)
-     $              , lrr(lelt),lrs(lelt),lrt(lelt)
-      real lr ,ls ,lt 
-      real llr,lls,llt
-      real lmr,lms,lmt
-      real lrr,lrs,lrt
-c
-      integer lbr,rbr,lbs,rbs,lbt,rbt,e
-c
-      real x(lx1,ly1,lz1,nelv)
-      real y(lx1,ly1,lz1,nelv)
-      real z(lx1,ly1,lz1,nelv)
-      real axwt(lx2)
-
-      real fldr(lx1,lelv),flds(lx1,lelv),fldt(lx1,lelv)
-      real fld(lx1,ly1,lz1,lelv)
-      common /ctmpf_rho/ fldr,flds,fldt,fld
-
-      integer ifld
-      integer n
-
-
-      ierr = 0
-
-      if (param(44).eq.1) then
-        if (nio.eq.0) then
-          write(6,*) 'Density in FEM local solves not implemented'
-          write(6,*) 'Exitting in gen_fast_again()'
-        endif  
-
-        call exitt
-      endif
-
-      ifld = 1
-      n = lx1*ly1*lz1*nelv
-      call copy(fld,vtrans(1,1,1,1,ifld),n)
-      call get_1D_fld(fldr,flds,fldt,fld)   
-
-      call local_1D_geom()    ! lmr,drdx,...
-
-      do e=1,nelv
-c
-         if (param(44).eq.1) then
-           call get_fast_bc(lbr,rbr,lbs,rbs,lbt,rbt,e,2,ierr)
-         else
-           call get_fast_bc_again(lbr,rbr,lbs,rbs,lbt,rbt,e,3,ierr)
-         endif
-c
-c        Set up matrices for each element.
-c
-         if (param(44).eq.1) then
-           call set_up_fast_1D_fem( sr(1,e),lr,nr ,lbr,rbr
-     $                      ,llr(e),lmr(e),lrr(e),zgm2(1,1),lx2,e)
-         else
-           call set_up_fast_1D_sem_again( sr(1,e),lr,nr ,lbr,rbr
-     $                      ,llr(e),lmr(e),lrr(e),fldr(1,e),e)
-         endif
-         if (ifaxis) then
-            xsum = vlsum(wxm2,lx2)
-            do i=1,ly2
-               yavg = vlsc2(y(1,i,1,e),wxm2,lx2)/xsum
-               axwt(i) = yavg
-            enddo
-            call set_up_fast_1D_fem_ax( ss(1,e),ls,ns ,lbs,rbs
-     $                 ,lls(e),lms(e),lrs(e),zgm2(1,2),axwt,ly2,e)
-         else
-            if (param(44).eq.1) then
-               call set_up_fast_1D_fem( ss(1,e),ls,ns ,lbs,rbs
-     $                      ,lls(e),lms(e),lrs(e),zgm2(1,2),ly2,e)
-            else
-               call set_up_fast_1D_sem_again( ss(1,e),ls,ns ,lbs,rbs
-     $                      ,lls(e),lms(e),lrs(e),flds(1,e),e)
-            endif
-         endif
-         if (if3d) then
-            if (param(44).eq.1) then
-               call set_up_fast_1D_fem( st(1,e),lt,nt ,lbt,rbt
-     $                      ,llt(e),lmt(e),lrt(e),zgm2(1,3),lz2,e)
-            else
-               call set_up_fast_1D_sem_again( st(1,e),lt,nt ,lbt,rbt
-     $                      ,llt(e),lmt(e),lrt(e),fldt(1,e),e)
-            endif
-         endif
-c
-c        Set up diagonal inverse
-c
-         if (if3d) then
-            eps = 1.e-5 * (vlmax(lr(2),nr-2)
-     $                  +  vlmax(ls(2),ns-2) + vlmax(lt(2),nt-2))
-            l   = 1
-            do k=1,nt
-            do j=1,ns
-            do i=1,nr
-               diag = lr(i) + ls(j) + lt(k)
-               if (diag.gt.eps) then
-                  df(l,e) = 1.0/diag
-               else
-c                 write(6,3) e,'Reset Eig in gen fast:',i,j,k,l
-c    $                         ,eps,diag,lr(i),ls(j),lt(k)
-c   3             format(i6,1x,a21,4i5,1p5e12.4)
-                  df(l,e) = 0.0
-               endif
-               l = l+1
-            enddo
-            enddo
-            enddo
-         else
-            eps = 1.e-5*(vlmax(lr(2),nr-2) + vlmax(ls(2),ns-2))
-            l   = 1
-            do j=1,ns
-            do i=1,nr
-               diag = lr(i) + ls(j)
-               if (diag.gt.eps) then
-                  df(l,e) = 1.0/diag
-               else
-c                 write(6,2) e,'Reset Eig in gen fast:',i,j,l
-c    $                         ,eps,diag,lr(i),ls(j)
-c   2             format(i6,1x,a21,3i5,1p4e12.4)
-                  df(l,e) = 0.0
-               endif
-               l = l+1
-            enddo
-            enddo
-         endif
-c
-c        Next element ....
-c
-      enddo
-
-      ierrmx = iglmax(ierr,1)
-      if (ierrmx.gt.0) then
-         if (ierr.gt.0) write(6,*) nid,ierr,' BC FAIL'
-         call exitti('E INVALID BC FOUND in genfast$',ierrmx)
-      endif
-
-
-      return
-      end
-c-----------------------------------------------------------------------
 
 
 

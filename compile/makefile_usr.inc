@@ -56,6 +56,7 @@ $(OBJDIR)/map2D_usr.o                     :$(SRC_MAP)/map2D_usr.f;              
 $(OBJDIR)/fast_reset.o                    :$(SRC_USR)/fast_reset.f;               $(F77) -c $(FL2) -I$(SRC_INC)/ $< -o $@
 $(OBJDIR)/h1mg_reset.o                    :$(SRC_USR)/h1mg_reset.f;               $(F77) -c $(FL2) -I$(SRC_INC)/ $< -o $@
 $(OBJDIR)/modified_local_solve.o          :./modified_local_solve.f;              $(F77) -c $(FL2) -I$(SRC_INC)/ $< -o $@
+$(OBJDIR)/mesh2_exchange.o                :./mesh2_exchange.f;                    $(F77) -c $(FL2) -I$(SRC_INC)/ $< -o $@
 
 
 

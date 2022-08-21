@@ -184,10 +184,13 @@ c-----------------------------------------------------------------------
         do i=1,n2
           x = xm2(i,1,1,1)  
           y = ym2(i,1,1,1)
-          tmp4(i,1,1,1) = 1
+          tmp4(i,1,1,1) = 1.0 ! bm2(i,1,1,1)
         enddo
+        call mappr(t,bm2,tmp5,tmp6)
         call copy(pr,tmp4,n2)
         call outpost(tmp1,tmp2,vz,tmp4,tmp3,'prc')
+
+12    format(A4,2x,12(E12.5,2x))
 
 
         ifield = 1
@@ -196,10 +199,14 @@ c-----------------------------------------------------------------------
         call local_solves_fdm(tmp8,tmp4)
         call outpost(tmp5,tmp6,vz,tmp8,t,'prc')
 
-        call rzero(tmp12,n2)
-        call crs_solve_l2(tmp12,tmp4)
-        call outpost(tmp9,tmp10,vz,tmp12,t,'prc')
+!       build local inverses based on new method        
+        call gen_fast_again3(df,sr,ss,st)
+        call local_solves_fdm3(tmp8,tmp4)
+        call outpost(tmp1,tmp2,vz,tmp8,t,'prc')
 
+!        call rzero(tmp12,n2)
+!        call crs_solve_l2(tmp12,tmp4)
+!        call outpost(tmp9,tmp10,vz,tmp12,t,'prc')
 
 
 !       dd_solver2
@@ -207,13 +214,13 @@ c-----------------------------------------------------------------------
         call rzero(h1,n)
         call invers2(h2inv,h2,n)
 
-        nit = 1
-        istep = nit
-        call rzero(tmp8,n2)
-        call rzero(tmp12,n2)
-        call dd_solver2(pr,tmp4,h1,h2,h2inv,nit,tmp8,tmp12)
-        call outpost(tmp9,tmp10,vz,pr,t,'prc')
-
+!        nit = 1
+!        istep = nit
+!        call rzero(tmp8,n2)
+!        call rzero(tmp12,n2)
+!        call dd_solver2(pr,tmp4,h1,h2,h2inv,nit,tmp8,tmp12)
+!        call outpost(tmp9,tmp10,vz,pr,t,'prc')
+!
 !        nit = 10
 !        istep = nit
 !        call rzero(tmp8,n2)
@@ -826,6 +833,7 @@ c     Fill interiors
       real tmpx(lx1,2)
       real pi
       real x,y
+      character*32 str
 
 
 !     ah          = Laplacian
@@ -851,8 +859,11 @@ c     Fill interiors
 !      do j=1,lx1
 !        k = (j-1)*lx1
 !        write(6,12) 'dgll', (dph(i+k),i=1,lx1)
-!      enddo  
-12    format(A4,2x,12(E12.5,2x))
+!      enddo
+      call blank(str,32)
+      write(str,'(A8,I2,A11)') '(A4,2x,I',lx1,'(E10.4,2x))'
+      write(6,*) str
+12    format(A4,2x,12(E22.16,2x))
      
       n  = lx1*ly1*lz1*nelv
       n2 = lx2*ly2*lz2*nelv
@@ -988,31 +999,6 @@ c     Fill interiors
 
       call outpost(tmp3,tmp5,tmp6,tmp4,tmp5,'tmp') ! actual derivative
 
-!     Seems to work so far
-      do e=1,nelv
-        call rone(drdx(1,e),lx1)
-        call build_local_1D_laplacian(laply(1,1,e),dph,
-     $                                       drdx(1,e),bh,ly1)
-        call copy(tmp5(1,1,1,e),ah,lx1*lx1)
-      enddo  
-    
-      call copy(tmp1,laplx,n)
-      call copy(tmp2,laply,n)
-
-!     Seems to work so far
-      do e=1,nelv
-        call rone(tmpx,lx1)
-        call set_up_fast_1D_sem_op_again(laplx(1,1,e),0,lx1-1,
-     $            .true.,.true.,0.5,0.5,0.5,bh,dph,tmpx,0)
-!       Switched indicies        
-        call set_up_fast_1D_sem_op_again2(laply(1,1,e),0,lx1-1,
-     $            .true.,.true.,0.5,0.5,0.5,bh,dph,tmpx,0)
-       
-      enddo  
-      call copy(tmp1,laplx,n)
-      call copy(tmp2,laply,n)
-
-      call outpost(tmp1,tmp2,tmp3,tmp4,tmp5,'tmp')    ! laplacian matrix
 
       return
       end subroutine test_semhat2
@@ -1050,6 +1036,39 @@ c     Fill interiors
       end subroutine build_local_1D_laplacian
 !---------------------------------------------------------------------- 
 
+      subroutine build_local_1D_laplacian_nek(ah,dph,drdx,bm,n)
+
+!     This is the weak Laplacian Matrix
+!     ah = DT*B*D
+!     This is how nek builds it for the local_fdm_solves.
+!     I think the indexing is wrong.        
+
+      implicit none
+
+      integer n         ! lx1/ly1/lz1
+      real ah(n,n)      ! Laplacian
+      real dph(n,n)     ! Gradient matrix
+      real drdx(n) 
+      real bm(n)        ! Mass (unweighted)
+
+      integer i,j,k
+      real s
+
+
+      do i=1,n
+      do j=1,n
+        s = 0.0
+        do k=1,n
+          s = s + dph(i,k)*drdx(k)*bm(k)*(1.0/drdx(k))*dph(j,k)*drdx(k)
+        enddo
+        ah(i,j) = s
+      enddo
+      enddo 
+
+
+      return
+      end subroutine build_local_1D_laplacian_nek
+!---------------------------------------------------------------------- 
 
 
 
