@@ -23,12 +23,9 @@
 
       integer n,n2,nxyz,nxyz2
 
-      real scr1,scr2,scr3,scr4,scr5,scr6,scr7
-      common /scrns/ scr1(lt),scr2(lt),scr3(lt),scr4(lt)
-     $             , scr5(lt),scr6(lt),scr7(lt)          
-
+      real scr1
       real scpr               ! global point numbering on Mesh2 
-      common /scrcg/ scpr(lx2,ly2,lz2,lelt)
+      common /scrch/ scr1(lt),scpr(lx2,ly2,lz2,lelt)
 
       integer i,j,k,e
       integer gl,gl0
@@ -58,15 +55,11 @@
       call edge_ext    (scr1)             ! Extend to Edges
       call crnr_ext    (scr1)             ! Extend to Corners
       call dssum       (scr1,lx1,ly1,lz1) ! Add up all contributions
-      call copy(tmp3,scr1,n)              ! just for debugging
       call dface_add1si(scr1,-1.)         ! Here we have exchanged face values
-      call copy(tmp1,scr1,n)              ! just for debugging
       call edge_corr   (scr1)
       call crnr_corr   (scr1)
-      call copy(tmp2,scr1,n)              ! just for debugging
 
-!      call copy(tmp1,scr1,n)
-
+      call copy(tmp1,scr1,n)
 
       call outpost(tmp1,tmp2,tmp3,tmp4,tmp3,'exc')
 
@@ -74,7 +67,7 @@
       end subroutine 
 !---------------------------------------------------------------------- 
 
-      subroutine exchange_m2(x1,x2,wk1,wk2,wk3)
+      subroutine exchange_m2(x1,x2)
 
 !     Exchange interior values of neighboring elements
 !     On the Pressure mesh        
@@ -88,30 +81,19 @@
 
       real x1(lx1,ly1,lz1,lelv)     ! output
       real x2(lx2,ly2,lz2,lelv)     ! input
-      real wk1(lx1,ly1,lz1,lelv)
-      real wk2(lx1,ly1,lz1,lelv)
-      real wk3(lx1,ly1,lz1,lelv)
 
       n  = lx1*ly1*lz1*nelv
       n2 = lx2*ly2*lz2*nelv
 
-      call rzero(wk1,n)
-      call fill_interior(wk1,x2)    ! Put M2 on M1 interior
-      call dface_ext    (wk1)       ! Extend to face
-      call dssum        (wk1,lx1,ly1,lz1)
-      call dface_add1si (wk1,-1.)
-
-      call rzero(wk2,n) 
-      call fill_interior(wk2,x2)
-      call dface_ext    (wk2)       ! Extend to face
-      call crnr_ext     (wk2)       ! Extend to corners
-
-      call rzero(wk3,n)
-      call dssum        (wk2,lx1,ly1,lz1)
-      call dface_add1si (wk2,-1.)
-      call crnr_corr     (wk2)
-
-      call copy(x1,wk2,n)
+      call rzero(x1,n)
+      call fill_interior(x1,x2)       ! Put M2 on M1 interior
+      call dface_ext   (x1)             ! Extend to face
+      call edge_ext    (x1)             ! Extend to Edges
+      call crnr_ext    (x1)             ! Extend to Corners
+      call dssum       (x1,lx1,ly1,lz1) ! Add up all contributions
+      call dface_add1si(x1,-1.)         ! Here we have exchanged face values
+      call edge_corr   (x1)             ! Correct the edge values
+      call crnr_corr   (x1)             ! Correct the corner values
 
       return
       end subroutine 

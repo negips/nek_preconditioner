@@ -342,7 +342,7 @@ c     calculate B tilde operator
 !     Debugging      
       
       write(6,12) 'EigN', (lam(i),i=1,lx1) 
-12    format(A4,2x,12(E12.5,2x))
+12    format(A4,2x,16(E12.5,2x))
 
       return
       end
